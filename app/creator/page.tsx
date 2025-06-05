@@ -1,28 +1,34 @@
 'use client';
-
 import { useState } from 'react';
 import LiveStream from '../../components/LiveStream';
 import Chat from '../../components/Chat';
 import ChallengeList from '../../components/ChallengeList';
 import { Challenge } from '../../components/ChallengeForm';
 
+const CREATOR_PUBKEY = 'CreatorPublicKey';
+
 export default function CreatorPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [tokenName, setTokenName] = useState('');
   const [tokenSymbol, setTokenSymbol] = useState('');
   const [supply, setSupply] = useState('');
+  const [tokenId, setTokenId] = useState<number | null>(null);
 
-  const createToken = () => {
-    alert(`Token ${tokenName} (${tokenSymbol}) created with supply ${supply} (simulated)`);
+  const createToken = async () => {
+    const res = await fetch('http://localhost:4000/api/creator/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: tokenName, symbol: tokenSymbol, supply, creatorPublicKey: CREATOR_PUBKEY })
+    });
+    const data = await res.json();
+    setTokenId(data.id);
     setTokenName('');
     setTokenSymbol('');
     setSupply('');
   };
 
-  const handleLike = (id: number) => {
-    setChallenges((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, likes: c.likes + 1 } : c))
-    );
+  const handleLike = (c: Challenge) => {
+    setChallenges(prev => prev.map(ch => ch.id === c.id ? c : ch));
   };
 
   return (

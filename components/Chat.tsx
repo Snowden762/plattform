@@ -1,4 +1,6 @@
-import { useState } from 'react';
+'use client';
+import { useState, useEffect } from 'react';
+import { io, Socket } from 'socket.io-client';
 
 interface Message {
   id: number;
@@ -8,10 +10,22 @@ interface Message {
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [socket, setSocket] = useState<Socket | null>(null);
+
+  useEffect(() => {
+    const s = io('http://localhost:4000');
+    setSocket(s);
+    s.on('chat:message', (msg: string) => {
+      setMessages(prev => [...prev, { id: Date.now(), text: msg }]);
+    });
+    return () => {
+      s.disconnect();
+    };
+  }, []);
 
   const sendMessage = () => {
-    if (!input.trim()) return;
-    setMessages([...messages, { id: Date.now(), text: input }]);
+    if (!input.trim() || !socket) return;
+    socket.emit('chat:message', input);
     setInput('');
   };
 

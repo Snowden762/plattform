@@ -1,9 +1,11 @@
+'use client';
 import { useState } from 'react';
 
-export default function TokenPurchase() {
+export default function TokenPurchase({ tokenId }: { tokenId: number }) {
   const [amount, setAmount] = useState('');
-  const purchase = () => {
-    alert(`Purchased ${amount} tokens (simulated)`);
+  const purchase = async () => {
+    if (!amount) return;
+    alert(`Purchased ${amount} tokens of ${tokenId} (simulated)`);
     setAmount('');
   };
   return (

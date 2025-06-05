@@ -1,3 +1,4 @@
+'use client';
 import { useState } from 'react';
 
 export interface Challenge {
@@ -7,19 +8,19 @@ export interface Challenge {
   likes: number;
 }
 
-export default function ChallengeForm({ onAdd }: { onAdd: (c: Challenge) => void }) {
+export default function ChallengeForm({ onAdd, creatorPublicKey }: { onAdd: (c: Challenge) => void; creatorPublicKey: string }) {
   const [text, setText] = useState('');
   const [amount, setAmount] = useState('');
 
-  const submit = () => {
+  const submit = async () => {
     if (!text.trim() || !amount) return;
-    const challenge: Challenge = {
-      id: Date.now(),
-      text,
-      amount: parseFloat(amount),
-      likes: 0,
-    };
-    onAdd(challenge);
+    const res = await fetch('http://localhost:4000/api/challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, amount: parseFloat(amount), creatorPublicKey })
+    });
+    const data = await res.json();
+    onAdd(data);
     setText('');
     setAmount('');
   };

@@ -2,66 +2,62 @@ const express = require('express');
 const cors = require('cors');
 const { createServer } = require('http');
 const { Server } = require('socket.io');
-const { v4: uuidv4 } = require('uuid');
+const prisma = require('./lib/prisma');
+const { login, verify } = require('./auth');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// In-memory stores
-const tokens = [];
-const challenges = [];
+// Auth routes
+app.post('/api/auth/nonce', login);
+app.post('/api/auth/verify', verify);
 
 // Token creation
-app.post('/api/creator/token', (req, res) => {
-  const { name, symbol, supply } = req.body;
-  if (!name || !symbol || !supply) return res.status(400).json({ error: 'Invalid input' });
-  const token = { id: uuidv4(), name, symbol, supply };
-  tokens.push(token);
+app.post('/api/creator/token', async (req, res) => {
+  const { name, symbol, supply, creatorPublicKey } = req.body;
+  if (!name || !symbol || !supply || !creatorPublicKey) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  const creator = await prisma.user.findUnique({ where: { publicKey: creatorPublicKey } });
+  if (!creator) return res.status(404).json({ error: 'Creator not found' });
+  const token = await prisma.token.create({ data: { name, symbol, supply: parseInt(supply, 10), creatorId: creator.id } });
   res.json(token);
 });
 
 // List tokens
-app.get('/api/creator/token', (req, res) => {
+app.get('/api/creator/token', async (_req, res) => {
+  const tokens = await prisma.token.findMany();
   res.json(tokens);
 });
 
 // Create challenge
-app.post('/api/challenge', (req, res) => {
-  const { text, amount } = req.body;
-  if (!text || !amount) return res.status(400).json({ error: 'Invalid input' });
-  const challenge = { id: uuidv4(), text, amount, likes: 0, tips: [] };
-  challenges.push(challenge);
+app.post('/api/challenge', async (req, res) => {
+  const { text, amount, creatorPublicKey } = req.body;
+  if (!text || !amount || !creatorPublicKey) {
+    return res.status(400).json({ error: 'Invalid input' });
+  }
+  const creator = await prisma.user.findUnique({ where: { publicKey: creatorPublicKey } });
+  if (!creator) return res.status(404).json({ error: 'Creator not found' });
+  const challenge = await prisma.challenge.create({ data: { text, amount: parseFloat(amount), creatorId: creator.id } });
   io.emit('challenge:new', challenge);
   res.json(challenge);
 });
 
 // Like challenge
-app.post('/api/challenge/:id/like', (req, res) => {
-  const challenge = challenges.find(c => c.id === req.params.id);
-  if (!challenge) return res.status(404).json({ error: 'Not found' });
-  challenge.likes += 1;
-  io.emit('challenge:update', challenge);
-  res.json(challenge);
-});
-
-// Tip challenge
-app.post('/api/challenge/:id/tip', (req, res) => {
-  const { amount } = req.body;
-  const challenge = challenges.find(c => c.id === req.params.id);
-  if (!challenge || !amount) return res.status(404).json({ error: 'Not found' });
-  challenge.tips.push(amount);
-  challenge.total = challenge.tips.reduce((a, b) => a + b, challenge.amount);
+app.post('/api/challenge/:id/like', async (req, res) => {
+  const challenge = await prisma.challenge.update({ where: { id: parseInt(req.params.id, 10) }, data: { likes: { increment: 1 } } });
   io.emit('challenge:update', challenge);
   res.json(challenge);
 });
 
 // List challenges
-app.get('/api/challenge', (req, res) => {
+app.get('/api/challenge', async (_req, res) => {
+  const challenges = await prisma.challenge.findMany();
   res.json(challenges);
 });
 
-// Basic chat via WebSocket
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 

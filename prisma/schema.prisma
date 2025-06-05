@@ -1,0 +1,23 @@
+model User {
+  id        Int     @id @default(autoincrement())
+  publicKey String  @unique
+  createdAt DateTime @default(now())
+}
+
+model Token {
+  id        Int     @id @default(autoincrement())
+  name      String
+  symbol    String
+  supply    Int
+  creatorId Int
+  creator   User    @relation(fields: [creatorId], references: [id])
+}
+
+model Challenge {
+  id        Int      @id @default(autoincrement())
+  text      String
+  amount    Float
+  likes     Int      @default(0)
+  creatorId Int
+  creator   User     @relation(fields: [creatorId], references: [id])
+}
